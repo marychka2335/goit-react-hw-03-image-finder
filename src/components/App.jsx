@@ -32,7 +32,7 @@ export class App extends Component {
       const response = await axios.get(searchUrl);
       if (response.data.hits.length === 0) {
         iziToast.warning({
-          message: 'We are sorry, but you have reached the end of search results.',
+          message: 'Sorry, there are no images matching your search query. Please try again.',
           messageColor: 'white',
           backgroundColor: 'lightred',
           timeout: 3000,
