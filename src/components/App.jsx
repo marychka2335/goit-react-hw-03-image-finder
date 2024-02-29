@@ -19,7 +19,6 @@ export class App extends Component {
     images: [],
     page: 1,
     isLoading: false,
-    per_page: 12,
   };
 
   handleSubmit = async query => {
