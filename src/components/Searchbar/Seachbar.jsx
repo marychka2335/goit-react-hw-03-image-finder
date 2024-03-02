@@ -1,42 +1,53 @@
 import { Component } from 'react';
-import iziToast from 'izitoast';
-import 'izitoast/dist/css/iziToast.min.css';
+import PropTypes from 'prop-types';
 import css from './Searchbar.module.css';
 
+const INITIAL_STATE = {
+  searchQuery: '',
+};
+
 export class Searchbar extends Component {
+  state = { ...INITIAL_STATE };
+
+  handleChange = evt => {
+    const { name, value } = evt.target;
+    this.setState({ [name]: value });
+  };
+
   handleSubmit = evt => {
     evt.preventDefault();
-    const query = evt.target.elements.searchInput.value.toLowerCase().trim();
-    if (query) {
-      this.props.onSubmit(query);
-    } else {
-      iziToast.warning({
-        message: 'Sorry, there are no images matching your search query. Please try again.',
-        messageColor: 'white',
-        backgroundColor: 'navy',
-        timeout: 3000,
-        position: 'topLeft',
-      });
-    }
+    this.props.onSubmit(this.state.searchQuery);
+    this.setState({ ...INITIAL_STATE });
   };
+
   render() {
+    const { searchQuery } = this.state;
+
     return (
       <header className={css.searchbar}>
         <form className={css.searchForm} onSubmit={this.handleSubmit}>
-          <button type="submit" className={css.searchFormButton}>
+          <button className={css.searchFormButton} type="submit">
             <span className={css.searchFormButtonLabel}>Search</span>
           </button>
 
           <input
             className={css.searchFormInput}
-            name="searchInput"
             type="text"
+            name="searchQuery"
             autoComplete="off"
             autoFocus
             placeholder="Search images and photos"
+            value={searchQuery}
+            onChange={this.handleChange}
           />
         </form>
       </header>
     );
   }
 }
+
+Searchbar.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+};
+
+export default Searchbar;

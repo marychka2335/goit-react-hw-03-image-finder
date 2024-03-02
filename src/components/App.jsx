@@ -1,36 +1,68 @@
 import { Component } from 'react';
-import axios from 'axios';
+import { fetchGallery } from './API/Api';
 import iziToast from 'izitoast';
 import 'izitoast/dist/css/iziToast.min.css';
-import * as Scroll from 'react-scroll';
+// import * as Scroll from 'react-scroll';
 import { Searchbar } from './Searchbar/Seachbar';
 import { Loader } from './Loader/Loader';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Button } from './Button/Button';
-
-const API_KEY = '34728091-aad7c1a347ba4d65085b0c300';
-const BASE_URL = 'https://pixabay.com/api/?';
-const searchParams = 'image_type=photo&orientation=horizontal&per_page=12';
-const scroll = Scroll.animateScroll;
+import { Modal } from './Modal/Modal';
+import css from './App.module.css';
 
 export class App extends Component {
   state = {
-    searchQuery: '',
     images: [],
+    searchQuery: '',
     page: 1,
     isLoading: false,
+    error: null,
+    foundImages: null,
+    currentLargeImg: null,
   };
 
-  handleSubmit = async query => {
-    if (query === this.state.searchQuery) {
+  setInitialParams = searchQuery => {
+    if (searchQuery === '') {
+      return iziToast.warning({
+        message: 'Enter your search parameters',
+        messageColor: 'white',
+        backgroundColor: 'lightred',
+        timeout: 3000,
+        position: 'topLeft',
+      });
+    }
+
+    if (searchQuery === this.state.searchQuery) {
       return;
     }
-    const searchUrl = `${BASE_URL}q=${query}&page=1&key=${API_KEY}&${searchParams}`;
+
+    this.setState({
+      images: [],
+      searchQuery,
+      page: 1,
+    });
+  };
+
+  loadMore = () => {
+    this.setState(({ page }) => ({ page: page + 1 }));
+  };
+
+  addImages = async (searchQuery, page) => {
+    this.setState({ isLoading: true });
+
     try {
-      this.setState({ isLoading: true });
-      scroll.scrollToTop();
-      const response = await axios.get(searchUrl);
-      if (response.data.hits.length === 0) {
+      const data = await fetchGallery(searchQuery, page);
+      const { hits: newImages, totalHits: foundImages } = data;
+
+      this.setState(oldState => ({
+        images: [...oldState.images, ...newImages],
+      }));
+
+      if (foundImages !== this.state.foundImages) {
+        this.setState({ foundImages });
+      }
+
+      if (data.hits.length === 0) {
         iziToast.warning({
           message: 'Sorry, there are no images matching your search query. Please try again.',
           messageColor: 'white',
@@ -38,69 +70,47 @@ export class App extends Component {
           timeout: 3000,
           position: 'topLeft',
         });
-        return;
       }
-      this.setState({
-        searchQuery: query,
-        images: response.data.hits,
-        page: 1,
-      });
     } catch (error) {
-      iziToast.warning({
-        message: 'Sorry, there are no images matching your search query. Please try again.',
-        messageColor: 'white',
-        backgroundColor: 'lightred',
-        timeout: 3000,
-        position: 'topLeft',
-      });
+      this.setState({ error });
     } finally {
       this.setState({ isLoading: false });
     }
   };
 
-  handleClick = async () => {
-    const { searchQuery, page } = this.state;
-    const searchUrl = `${BASE_URL}q=${searchQuery}&page=${page + 1}&key=${API_KEY}&${searchParams}`;
-    try {
-      this.setState({ isLoading: true });
-      const response = await axios.get(searchUrl);
-      scroll.scrollMore(500);
-      if (response.data.hits.length === 0) {
-        iziToast.warning({
-          message: 'We are sorry, but you have reached the end of search results.',
-          messageColor: 'white',
-          backgroundColor: 'lightred',
-          timeout: 3000,
-          position: 'bottomLeft',
-        });
-        return;
-      }
-      this.setState(prevState => ({
-        images: [...prevState.images, ...response.data.hits],
-        page: prevState.page + 1,
-      }));
-    } catch (error) {
-      iziToast.warning({
-        message: 'Something went wrong. Please try again.',
-        messageColor: 'white',
-        backgroundColor: 'lightred',
-        timeout: 3000,
-        position: 'topLeft',
-      });
-    } finally {
-      this.setState({ isLoading: false });
-    }
+  openModal = (src, alt) => {
+    this.setState(state => ({ ...state, currentLargeImg: { src, alt } }));
   };
+
+  closeModal = () => {
+    this.setState({ currentLargeImg: null });
+  };
+
+  componentDidUpdate(_, prevState) {
+    if (prevState.page !== this.state.page || prevState.searchQuery !== this.state.searchQuery) {
+      const { searchQuery, page } = this.state;
+      this.addImages(searchQuery, page);
+    }
+  }
 
   render() {
-    const { isLoading, images } = this.state;
+    const { images, isLoading, error, foundImages, currentLargeImg } = this.state;
+
     return (
-      <>
-        <Searchbar onSubmit={this.handleSubmit} />
+      <div className={css.app}>
+        <Searchbar onSubmit={this.setInitialParams} />
+        {error && <p>Whoops, something went wrong: {error.message}</p>}
         {isLoading && <Loader />}
-        <ImageGallery images={images} />
-        {images.length !== 0 && <Button handleClick={this.handleClick} />}
-      </>
+        {images.length > 0 && (
+          <>
+            <ImageGallery items={images} openModal={this.openModal} />
+            {images.length < foundImages && <Button loadMore={this.loadMore} />}
+          </>
+        )}
+        {currentLargeImg && <Modal closeModal={this.closeModal} imgData={currentLargeImg} />}
+      </div>
     );
   }
 }
+
+export default App;
